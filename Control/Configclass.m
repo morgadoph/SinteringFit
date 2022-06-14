@@ -1,0 +1,106 @@
+classdef Configclass <handle
+    %Configurações e informações forncedidas pelo usuário através da
+    %interface utilizada nos cálculos
+    
+    properties
+        Id
+        
+        %%%%%%%%%%%%%%%%%%%Opções de correção para Shrinkage%%%%%%%%%%%%%%%
+        %Correção de To
+        ToOk                                                               %Verifica se a correção está selecionada
+            ToValue                                                        %Valor de To utilizado na correção
+        
+        %Correção de Lo
+        LoOk                                                               %Verifica se a correção de Lo está selecionada
+            LoMethod                                                       %Determina o método escolhido pelo usuário para correção
+                ToLoValue                                                  %Valor inicial da temperatura usado na correção                                                        
+                TfLoValue                                                  %Valor final da temperatura usado na correção
+                ReferenceLo                                                %Curva de referência utilizada na correção
+        
+        %Correção da expansão térmica do terminal
+        PushRodOk                                                          %Verifica se a correção está selecionada
+            PushRodFile                                                    %Arquivo de dados utilizado para correção (T correção zeros)
+            PushRodFileName                                                %Arquivo que guarda o nome do arquivo de dados
+        
+        %Correção da expansão térmica das amostras
+        ExpThermOk                                                         %Verifica se a correção está selecionada
+            ExpThermFile                                                   %Arquivo de dados utilizado na correção (T correção CET)
+            ExpThermFileName                                               %Arquivo que guarda o nome do arquivo de dados
+        
+        %Método de cálculo da retração    
+                DlMethod                                                   %Verifica qual método é utilizado no cálculo
+        
+        %%%%%%%%%%%%%%%%%%%Opções de correção para Densities%%%%%%%%%%%%%%%
+        %Correção da perda de massa para o cálculo das densidades
+        MassOk                                                             %Verifica se a correção está selecionada
+            MassMethod                                                     %Determina o método de correção
+            MassCorrectionFile                                             %Guarda arquivo de correção de perda de massa
+            MassCorrectionDone
+        
+        %Informações para o cálculo da densidade
+        Denso                                                              %Densidade Inicial
+        DensoUncertainty                                                   %Incerteza da densidade inicial
+    
+        %Opções para o cálculo da densidade
+        ShrinkageDerivateOk
+        DensitiesOk                                                        %Verifica se o cálculo é feito
+            DensitiesDerivateOk                                            %Verifica se o cálculo é feito
+        DensificationOk                                                    %Verifica se o cálculo é feito
+            DensificationDerivateOk                                        %Verifica se o cálculo é feito
+        InstShrinkageOk                                                    %Verifica se o cálculo é feito
+            InstShrinkageDerivateOk                                        %Verifica se o cálculo é feito
+            DensityDataOk
+            DensityDataFile
+            DensityDataName
+        
+       %%%%%%%%%%%%%%%%%Opções para o cálculo das incertezas%%%%%%%%%%%%%%%     
+       UncertaintyMethod                                                  %Verifica se o cálculo é feito, 0 => None ; 1 = Resolution ; 2 = ASTMBased
+            Resolution                                                     %Resolução do equipamento
+            CETFile                                                        %Coeficiente de expansão térmico da amostra
+            Stringname
+            
+       %Opções para análise de Arrhenius
+       ArrheniusDataOption
+       InitDens
+       FinalDens
+       StepDens
+       
+       %Opções para o cálculo da MSC
+       MSCFunction
+       MSCMethod
+       MSCFitting
+       MSCStages
+       MSCInitDens1
+       MSCInitDens2
+       MSCFinalDens1
+       MSCFinalDens2
+       MSCEnergy
+       SelectionQ
+     
+    end
+    
+    methods
+        function obj = Configclass
+                obj.ToOk = 0;                                                             
+                obj.LoOk = 0;                                                           
+                obj.PushRodOk = 0;                                                      
+                obj.ExpThermOk = 0;                                                
+                obj.MassOk = 0;                                           
+                obj.ShrinkageDerivateOk = 0;
+                obj.DensitiesOk = 0;                                           
+                obj.DensitiesDerivateOk = 0;                                  
+                obj.DensificationOk = 0;                                
+                obj.DensificationDerivateOk = 0;                        
+                obj.InstShrinkageOk = 0;                      
+                obj.InstShrinkageDerivateOk = 0;
+                obj.MassCorrectionDone=0;
+                obj.DlMethod=0;
+                obj.UncertaintyMethod=0;
+                obj.Stringname='';
+                obj.DensityDataOk=0;
+            
+        end
+    end
+    
+end
+

@@ -1,0 +1,49 @@
+classdef ArrheniusClass <handle
+    %Estrutura que guarda as informações necessárias para a análise pelo
+    %método de Arrhenius
+    
+    properties
+        ArrheniusDataOption
+        InitDens
+        FinalDens
+        StepDens
+        Data
+        ActivationEnergies
+        Parameters
+        ArrheniusFlag
+        DataAdjust
+        nDataAdjust
+        LineAdjust
+    end
+    
+    methods
+       
+        function Obj = ApplyArrhenius (Obj)
+           
+            nlinhas=size(Obj.Data);
+            ncols=nlinhas(1,2);
+            nlinhas=nlinhas(1,1);
+            dados=zeros(floor(ncols/2),2);
+            Obj.ActivationEnergies=zeros(nlinhas,2);
+            Obj.Parameters = zeros(nlinhas,2);
+            Obj.nDataAdjust=nlinhas;
+            for i=1:nlinhas
+               for j=2:2:ncols
+                   dados(j/2,1)=Obj.Data(i,j);
+                   dados(j/2,2)=Obj.Data(i,j+1);
+               end
+               Obj.DataAdjust{i}=dados;
+               [clin,cang] = MMQlinear (dados);
+               Obj.Parameters(i,:)=[clin, cang];
+               Obj.ActivationEnergies(i,1)=Obj.Data(i,1);
+               Obj.ActivationEnergies(i,2)=-cang*8.314472;
+               Obj.LineAdjust{i}(:,1)=Obj.DataAdjust(:,1);
+               %Obj.LineAdjust{i}(:,2)=clin*ones(ncols,1)+cang*dados(:,1);
+                
+            end
+            
+        end
+        
+    end
+    
+end
