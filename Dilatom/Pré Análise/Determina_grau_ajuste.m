@@ -1,0 +1,34 @@
+
+function [grau, correlacao] = Determina_grau_ajuste (parametros, n_dados, chi2)
+
+%Bloco que determina o chi2 teórico dos ajustes
+[chi2teo, var] = chi2stat(n_dados);                                          %Determina chi2 médio e variância para número de dados ajustados
+    
+
+%Bloco que calcula valor do teste z supondo constante do monômio de maior grau = 0
+zresult=zeros(7);
+valorz=zeros(7);
+for i=1:7
+    h = ztest( param(i,1),0,paraminc(i,2)^(1/2));                          %Efetua o teste z para parâmetro = 0 dentro da incerteza alfa=5%
+    valorz(i)=param(i,1)/(param(i,2)^(1/2));                               %Calcula o valor da variável z
+    zresult(i)=h;                                                          %Guarda resultados do teste z
+end
+
+
+%Bloco que determina grau do polinômio a se ajustar
+grau=1;
+for i=1:7
+    if zresult(i)==1;
+        grau=i;
+        break;
+    end
+    
+end
+
+%Bloco que calcula coeficiente de correlação para ajustes corretos
+correlacao=1-chi2(grau)/chi2teo;
+
+
+end
+
+

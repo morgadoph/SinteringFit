@@ -1,0 +1,394 @@
+classdef ShrinkageClass <handle 
+    %Estrutura que guarda curvas e variáveis de interesse calculadas a
+    %partir dos dados iniciais
+    
+    properties
+                                
+        %%%%%%%%%%%%%%%%%%%%%%Grandezas calculadas%%%%%%%%%%%%%%%%%%%%%%%%%
+        %Curva calculada e derivados
+        Curve                                                              %Curva de dados (t T dado)
+            CurveUnc                                                       %Matriz de covariância dos dados
+            RelativeUnc                                                    %Incertezas relativas de cada dado
+            StrainRatexRo                                                  %Derivada da retração linear vs densidade
+            Arrhenius                                                      %Variável Arrhenius vs 1/T
+            
+        %%%%%%%%%%%%%%%%%Cálculo das derviadas e derivados%%%%%%%%%%%%%%%%%
+        %Derivada em relação ao tempo
+        Derivatet                                                          %Curva obtida pela derivada dos dados em relação ao tempo
+            SmoothDerivatet                                                %Curva da derivada em relação ao tempo suavizada
+                SmoothDerivateUnct                                         %Matriz de covariância da derivada em relação ao tempo suavizada
+                RelativeDerivateUnct                                       %Incertezas relativas da derivada
+            SmoothWindowt                                                  %Valor da janela utilizado na suavização da derivada
+            
+        %Análise da derivada em relação a temperatura
+        DerivateT                                                          %Curva obtida pela derivada dos dados em relação a temperatura
+            SmoothDerivateT                                                 %Curva da derivada em relação a temperatura suavizada
+                SmoothDerivateUncT                                          %Matriz de covariância da derivada em relação a temperatura suavizada
+                RelativeDerivateUncT                                       %Incertezas relativas da derivada
+            SmoothWindowT                                                   %Valor da janela utilizado na suavização da derivada
+            
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %%%%%%%%%%%%%%%%%%Atributos não utilizados%%%%%%%%%%%%%%%%%%%%%%%%%
+        Ymaxt                                                          %Valores máximos no eixo y da curva de derivada
+        Xmaxt                                                          %Valores máximos no eixo x da curva de derivada
+        Npicost                                                        %Número de picos na curva de derivada em relação ao tempo
+        YmaxT                                                          %Valores máximos no eixo y da curva de derivada
+        XmaxT                                                          %Valores máximos no eixo x da curva de derivada
+        NpicosT                                                        %Número de picos na curva de derivada em relação a temperatura
+        Variation
+            
+        
+            
+    end
+    
+    methods
+        
+        %Calcula a matriz de covariância dos dados de retração linear
+        
+        function Obj = CalcUnc (Obj, ArrayData,Config)
+            
+            %Atribuição de variáveis
+                Tipoincerteza = Config.UncertaintyMethod;
+                MetRafael = Config.DlMethod;
+                Exptermcorrection=Config.ExpThermOk;
+                ndados=size(Obj.Curve);
+                l0=ArrayData.Lo;
+                Acor=Obj.Curve;
+                                
+                %Bloco que define tipo de incerteza utilizada no programa. Como opções são 
+                %dadas incertezas combinadas (estimadas pela metade da divisão) ou incertezas do tipo B 
+                %(baseada na relação fornecida pela ASTM)
+                ncor = 2 + Exptermcorrection+MetRafael*2;                                  %Variável auxiliar utilizada para determinar incerteza dos dados
+
+                %Bloco que cria matriz de covariância para cada curva de retração
+                if Tipoincerteza==1
+                    incerteza=Config.Resolution;
+                    Vcov = constroiVI (ndados,incerteza,ncor,l0);               %Função que constrói matriz de covariância dos dados usando incerteza combinada
+                else
+                    cet_data=Config.ExpThermFile;
+                    [cet_data] = interpolacao (cet_data);                                  %Função que organiza dados e interpola entre as temperaturas de 1 e 1600 graus
+                    cet=Determinacor(Acor,cet_data);                           %Determina arquivo de correção utilizado para expansão térmica da amostra
+                    resolucaoL=Config.Resolution;
+                    resolucaoT=0.5;
+                    Vcov= constroiVII (l0,resolucaoL, resolucaoT, cet,ncor,ndados);   %Função que constrói matriz de covariância dos dados baseada na relação da ASTM
+                end
+                
+                %Saída de dados
+                Obj.CurveUnc = Vcov;
+                Obj.RelativeUnc=Obj.Curve;
+                for i=1:ndados(1)
+                    Obj.RelativeUnc(i,3)=(Obj.CurveUnc(i,i)^(1/2));
+                end
+                
+        end
+        
+        function Obj = CalcDerivatet (Obj)
+        
+            %Atribuição de variáveis
+            dados=Obj.Curve;
+            ndados=size(dados);
+            ndados=ndados(1,1);
+            
+            %Calculo da derivada da curva
+            Derivate=zeros(ndados,2);
+            Derivate(:,1)=dados(:,1);
+            for i=1:ndados
+                if i==1
+                    Derivate(i,2)=(dados(i+1,3)-dados(i,3))/(dados(i+1,1)-dados(i,1));
+                elseif i==ndados(1,1)
+                    Derivate(i,2)=(dados(i,3)-dados(i-1,3))/(dados(i,1)-dados(i-1,1));
+                else
+                    Derivate(i,2)=1/2*((dados(i+1,3)-dados(i,3))/(dados(i+1,1)-dados(i,1))+(dados(i,3)-dados(i-1,3))/(dados(i,1)-dados(i-1,1)));
+                end
+            end
+            
+            %Saída de dados
+            Obj.Derivatet=Derivate;
+        end
+        
+        function Obj = CalcDerivateT (Obj)
+        
+            %Atribuição de variáveis
+            dados=Obj.Curve;
+            ndados=size(dados);
+            ndados=ndados(1,1);
+            
+            %Bloco que calcula a derivada da curva
+            Derivate=zeros(ndados,2);
+            Derivate(:,1)=dados(:,2);
+            for i=1:ndados
+                if i==1
+                    Derivate(i,2)=(dados(i+1,3)-dados(i,3))/(dados(i+1,2)-dados(i,2));
+                elseif i==ndados(1,1)
+                    Derivate(i,2)=(dados(i,3)-dados(i-1,3))/(dados(i,2)-dados(i-1,2));
+                else
+                    Derivate(i,2)=1/2*((dados(i+1,3)-dados(i,3))/(dados(i+1,2)-dados(i,2))+(dados(i,3)-dados(i-1,3))/(dados(i,2)-dados(i-1,2)));
+                end
+            end
+            
+            %Saída de dados
+            Obj.DerivateT=Derivate;
+        end
+        
+        function Obj = Smoothingt (Obj)
+        
+            vizinhos=Obj.SmoothWindowt;
+            Dados=Obj.Derivatet;
+            ndados=size(Dados);
+            ndados=ndados(1,1);
+            %Bloco que aplica a suavização pela média dos vizinhos
+            Suavizados=Dados;
+            for i=1:ndados(1)
+                if i< (vizinhos+1)
+                    naux=vizinhos-i+1;
+                    aux=naux*Dados(1,2);
+                    for j=1:(i+vizinhos)
+                        aux=aux+Dados(j,2);
+                    end
+                elseif i> (ndados(1)-vizinhos)
+                    naux=i-ndados(1)+vizinhos;
+                    aux=naux*Dados(ndados(1),2);
+                    for j=(i-vizinhos):ndados(1)
+                        aux=aux+Dados(j,2);
+                    end
+                else
+                    aux=0;
+                    for j=(i-vizinhos):(i+vizinhos)
+                        aux=aux+Dados(j,2);
+                    end
+                end
+
+                Suavizados(i,2)=aux/(2*vizinhos+1);
+            end
+            
+            %Saída de dados
+            Obj.SmoothDerivatet=Suavizados;
+        
+        end
+        
+        function Obj = SmoothingT (Obj)
+        
+   
+            vizinhos=Obj.SmoothWindowT;
+            Dados=Obj.DerivateT;
+            ndados=size(Dados);
+            ndados=ndados(1,1);
+            %Bloco que aplica a suavização pela média dos vizinhos
+            Suavizados=Dados;
+            for i=1:ndados(1)
+                if i< (vizinhos+1)
+                    naux=vizinhos-i+1;
+                    aux=naux*Dados(1,2);
+                    for j=1:(i+vizinhos)
+                        aux=aux+Dados(j,2);
+                    end
+                elseif i> (ndados(1)-vizinhos)
+                    naux=i-ndados(1)+vizinhos;
+                    aux=naux*Dados(ndados(1),2);
+                    for j=(i-vizinhos):ndados(1)
+                        aux=aux+Dados(j,2);
+                    end
+                else
+                    aux=0;
+                    for j=(i-vizinhos):(i+vizinhos)
+                        aux=aux+Dados(j,2);
+                    end
+                end
+
+                Suavizados(i,2)=aux/(2*vizinhos+1);
+            end
+            
+            %Saída de dados
+            Obj.SmoothDerivateT=Suavizados;
+        
+        end
+        
+        function Obj = CalcDerivateUnct (Obj)
+        
+            %Criação de variáveis auxiliares
+            aux=size(Obj.Curve);
+            ndados=aux(1,1);
+            dados=Obj.Curve;
+            janela = Obj.SmoothWindowt;
+            Vdados=Obj.CurveUnc;
+            Ct=zeros(ndados,ndados);
+            
+            %Bloco que propaga a incertezas da derivada
+            for i=1:ndados
+                if i==1
+                    Ct(i,i)=-1/(dados(i+1,1)-dados(i,1));
+                    Ct(i,i+1)=1/(dados(i+1,1)-dados(i,1));
+                elseif i==ndados
+                    Ct(i,i)=1/(dados(i,1)-dados(i-1,1));
+                    Ct(i,i)=1/(dados(i,1)-dados(i-1,1));
+                else
+                    Ct(i,i)=1/2*(-1/(dados(i+1,1)-dados(i,1))+1/(dados(i,1)-dados(i-1,1)));
+                    Ct(i,i+1)=1/2*(1/(dados(i+1,1)-dados(i,1)));
+                    Ct(i,i-1)=1/2*(-1/(dados(i,1)-dados(i-1,1)));
+                end
+            end
+            
+            Vdert=Ct*Vdados*Ct';
+            
+            %Verifica se suavização foi aplicada e propaga as covariâncias caso necessário
+            if janela ==0
+                Vtfinal = Vdert;
+            else
+                %Bloco que calcula as derivadas sem aplicar a suavização para ser utilizada na propagação de incertezas
+                derivadas = Obj.Derivatet;
+
+                %Bloco que propaga a incerteza da suavização das derivadas
+                dadosaux=derivadas(:,1:2);
+                [Vtfinal]=V_suave(dadosaux, Vdert, janela);
+            end
+
+            %Saída de dados
+            Obj.SmoothDerivateUnct = Vtfinal;
+            Obj.RelativeDerivateUnct=Obj.SmoothDerivatet;
+            for i=1:ndados(1)
+                Obj.RelativeDerivateUnct(i,2)=(Obj.SmoothDerivateUnct(i,i)^(1/2));
+            end
+            
+            
+        
+        end
+        
+        function Obj = CalcDerivateUncT (Obj)
+        
+            %Criação de variáveis auxiliares
+            aux=size(Obj.Curve);
+            ndados=aux(1,1);
+            dados=Obj.Curve;
+            janela = Obj.SmoothWindowt;
+            Vdados=Obj.CurveUnc;
+            CT=zeros(ndados,ndados);
+            
+            %Bloco que propaga a incertezas da derivada
+            for i=1:ndados
+                if i==1
+                    CT(i,i)=-1/(dados(i+1,2)-dados(i,2));
+                    CT(i,i+1)=-1/(dados(i+1,2)-dados(i,2));
+                elseif i==ndados(1,1)
+                    CT(i,i-1)=-1/(dados(i,2)-dados(i-1,2));
+                    CT(i,i-1)=-1/(dados(i,2)-dados(i-1,2));
+                else
+                    CT(i,i)=1/2*(-1/(dados(i+1,2)-dados(i,2))+1/(dados(i,2)-dados(i-1,2)));
+                    CT(i,i+1)=1/2*(1/(dados(i+1,2)-dados(i,2)));
+                    CT(i,i-1)=1/2*(-1/(dados(i,2)-dados(i-1,2)));
+                end
+            end
+            VderT=CT*Vdados*CT';
+            
+            %Verifica se suavização foi aplicada e propaga as covariâncias caso necessário
+            if janela ==0
+                VTfinal = VderT;
+            else
+                %Bloco que calcula as derivadas sem aplicar a suavização para ser utilizada na propagação de incertezas
+                derivadas = Obj.DerivateT;
+
+                %Bloco que propaga a incerteza da suavização das derivadas
+                dadosaux=derivadas(:,1:2);
+                [VTfinal]=V_suave(dadosaux, VderT, janela);
+            end
+
+            %Saída de dados
+            Obj.SmoothDerivateUncT = VTfinal;
+            Obj.RelativeDerivateUncT=Obj.SmoothDerivateT;
+            for i=1:ndados(1)
+                Obj.RelativeDerivateUncT(i,2)=(Obj.SmoothDerivateUncT(i,i)^(1/2));
+            end
+            
+        
+        end
+        
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %%%%%%%%%%%%%%%%Funções não utilizadas até o momento%%%%%%%%%%%%%%%
+        function Obj = CalcMaxt (Obj)
+        
+            %Bloco que cria variáveis auxiliares
+            Dados=Obj.Derivatet;
+            ndados=size(Dados);
+            ndados=ndados(1,1);
+            maxvalor=Dados(1,2);
+            Dados(:,2)=-1*Dados(:,2);
+            
+            %Bloco que determina o valor de corte na determinação dos picos
+            for i=2:ndados
+                if Dados(i,2) > maxvalor
+                    maxvalor = Dados(i:2);
+                end
+            end
+            Ycorte=maxvalor*0.001;
+            
+            %Bloco que busca os picos e determina a quantidade de picos
+            [Obj.Ymaxt,locs] = findpeaks (Dados(:,2), 'MINPEAKHEIGHT', Ycorte);
+            Obj.Npicost=size(Obj.Ymaxt);
+            Obj.Npicost=Obj.Npicost(1,1);
+            
+            %Bloco que determina as posições dos picos
+            Obj.Xmaxt=zeros(Obj.Npicost);
+            for i=1:Obj.Npicost
+                Obj.Xmaxt(i)=Dados(locs(i),1);
+            end
+            Obj.Ymaxt=-1*Obj.Ymaxt;
+            
+            
+        end
+        
+        function Obj = CalcMaxT (Obj)
+        
+            %Bloco que cria variáveis auxiliares
+            Dados=Obj.DerivateT;
+            ndados=size(Dados);
+            ndados=ndados(1,1);
+            maxvalor=Dados(1,2);
+            Dados(:,2)=-1*Dados(:,2);
+            
+            %Bloco que determina o valor de corte na determinação dos picos
+            for i=2:ndados
+                if Dados(i,2) > maxvalor
+                    maxvalor = Dados(i:2);
+                end
+            end
+            Ycorte=maxvalor*0.01;
+            
+            %Bloco que busca os picos e determina a quantidade de picos
+            [Obj.YmaxT,locs] = findpeaks (Dados(:,2), 'MINPEAKHEIGHT', Ycorte);
+            Obj.NpicosT=size(Obj.YmaxT);
+            Obj.NpicosT=Obj.NpicosT(1,1);
+            
+            %Bloco que determina as posições dos picos
+            Obj.XmaxT=zeros(Obj.NpicosT);
+            for i=1:Obj.NpicosT
+                Obj.XmaxT(i)=Dados(locs(i),1);
+            end
+            Obj.YmaxT=-1*Obj.YmaxT;
+            
+            
+        end
+        
+        function Obj = CalcVariation (Obj)
+
+            %Criação de variáveis auxiliares
+            dados = -1*Obj.Curve;
+            ndados=size (dados);
+            ndados=ndados(1,1);
+            max=dados(1,3);
+            
+            %Determinação da variação máxima na curva
+            for i=1:ndados
+                if dados(i,3) > max
+                    max = dados(i,3);
+                end
+            end
+
+            %Saída de dados
+            Obj.Variation = max;
+        end
+         
+        
+    end
+    
+end
+
