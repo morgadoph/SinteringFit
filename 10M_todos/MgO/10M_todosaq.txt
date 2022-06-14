@@ -1,8 +1,0 @@
-DM01aq.dat
-DM04aq.dat
-DM05aq.dat
-DM06aq.dat
-DM08aq.dat
-DM09aq.dat
-DM12aq.dat
-DM13aq.dat
